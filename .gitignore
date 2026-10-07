@@ -1,0 +1,48 @@
+# Compiled output / dependencies
+node_modules/
+functions/lib/
+*.tsbuildinfo
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+pubspec.lock
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+*-debug.log
+ui-debug.log
+firestore-debug.log
+pub-debug.log
+database-debug.log
+runtimeconfig.json
+serviceAccountKey*.json
+functions/serviceAccountKey*.json
+
+# Emulator exports
+emulator_data/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Flutter/Dart generated
+**/ios/Flutter/.last_build_id
+**/android/app/.cxx/
+GeneratedPluginRegistrant.*
+generated_plugin_registrant.dart
+
+# OS
+.DS_Store
+Thumbs.db

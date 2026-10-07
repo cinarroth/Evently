@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  flutter:
+    name: Flutter — analyze, format, test (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        package: [packages/evently_core, user_app, admin_app]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        working-directory: ${{ matrix.package }}
+        run: flutter pub get
+
+      - name: Format check
+        working-directory: ${{ matrix.package }}
+        run: dart format --set-exit-if-changed --output=none lib test
+
+      - name: Analyze
+        working-directory: ${{ matrix.package }}
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        working-directory: ${{ matrix.package }}
+        run: flutter test
+
+  functions:
+    name: Cloud Functions — build & test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci || npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run tests (Firestore + Auth emulators)
+        run: npm test
+
+  rules:
+    name: Firestore rules — security tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tests/rules
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run rules tests (Firestore emulator)
+        run: npm test

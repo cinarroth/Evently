@@ -1,0 +1,135 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /***************************************************
+     * Helpers
+     ***************************************************/
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // The admin state lives in the auth custom claim, set exclusively by the
+    // setAdminRole Cloud Function — clients can never write claims, so this
+    // is tamper-proof. users/{uid}.role mirrors the claim for app UI only.
+    // (A get() on the profile doc from inside its own match block would be
+    // recursive, so the claim is the single source of truth in rules.)
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
+    }
+
+    function isAdminOrSelf(userId) {
+      return isSelf(userId) || isAdmin();
+    }
+
+    /***************************************************
+     * users/{userId}
+     ***************************************************/
+
+    match /users/{userId} {
+      // Minimal public subset other users may read; admins read everything.
+      function publicFields() {
+        return resource.data.keys().hasOnly(['displayName', 'photoUrl', 'uid']);
+      }
+
+      allow read: if isAdminOrSelf(userId) || publicFields();
+
+      // Clients may only change displayName / photoUrl on THEIR OWN profile.
+      allow update: if isSelf(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['displayName', 'photoUrl', 'updatedAt']);
+
+      // Profiles are created by the onUserCreated trigger; clients may never
+      // create (so they cannot seed role) or delete them.
+      allow create, delete: if false;
+    }
+
+    /***************************************************
+     * events/{eventId}
+     ***************************************************/
+
+    match /events/{eventId} {
+      // All signed-in users can browse the event catalog. qrToken is a secret
+      // field, but the client SDK exposes per-field reads; functions redact it.
+      allow read: if isSignedIn();
+
+      // Events are created/deleted only via the admin Cloud Functions.
+      allow create, delete: if false;
+
+      // Admins edit whitelisted fields through adminUpdateEvent; the rules
+      // mirror that whitelist as a second line of defense.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly([
+               'title', 'description', 'coverImageUrl', 'location',
+               'startAt', 'endAt', 'capacity', 'category', 'updatedAt',
+               'status', 'statusTouchedAt'
+             ]);
+
+      /***************************************************
+       * events/{eventId}/registrations/{userId}
+       ***************************************************/
+
+      match /registrations/{userId} {
+        // Owners read their own registration; admins read all (participant
+        // list). All writes go through callables, which enforce capacity,
+        // duplicates and cross-event consistency inside transactions.
+        allow read: if isAdminOrSelf(userId);
+        allow write: if false;
+      }
+
+      /***************************************************
+       * events/{eventId}/checkins/{userId}
+       ***************************************************/
+
+      match /checkins/{userId} {
+        // Participants may see whether they checked in; admins audit.
+        allow read: if isAdminOrSelf(userId);
+        allow write: if false;
+      }
+    }
+
+    /***************************************************
+     * notifications/{notificationId}
+     ***************************************************/
+
+    match /notifications/{notificationId} {
+      // Inbox copies written by notifyUser; the message itself also lands via
+      // FCM. Users see only their own inbox; writes are function-only.
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    /***************************************************
+     * announcements/{announcementId}
+     ***************************************************/
+
+    match /announcements/{announcementId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    /***************************************************
+     * appConfig/{docId} — remote config-ish flags / thresholds
+     ***************************************************/
+
+    match /appConfig/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    /***************************************************
+     * Default deny
+     ***************************************************/
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

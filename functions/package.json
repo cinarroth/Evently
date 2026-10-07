@@ -1,0 +1,33 @@
+{
+  "name": "evently-functions",
+  "version": "1.0.0",
+  "description": "Evently trusted backend: registration, check-in, notifications",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "seed": "ts-node scripts/seed.ts",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore,auth,storage",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "test": "firebase emulators:exec --only firestore,auth \"mocha --timeout 20000 --require ts-node/register test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.9.0",
+    "firebase-functions-test": "^3.4.0",
+    "mocha": "^10.8.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  },
+  "private": true
+}

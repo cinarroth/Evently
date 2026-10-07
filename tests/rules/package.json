@@ -1,0 +1,14 @@
+{
+  "name": "evently-rules-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore,auth --project evently-test \"mocha --timeout 20000 ./*.test.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.0",
+    "firebase-admin": "^12.7.0",
+    "mocha": "^10.8.2"
+  }
+}

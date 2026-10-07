@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    /***************************************************
+     * Event covers (see functions/src/index.ts adminCreateEvent):
+     * only admins may upload; any signed-in user may read.
+     * Path shape: events/{eventId}/cover_<ts>.jpg|png|webp
+     ***************************************************/
+    match /events/{eventId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.token.admin == true
+        && fileName.matches('cover_[0-9]+\\.(jpg|jpeg|png|webp)$')
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    /***************************************************
+     * Avatars: users write only in their own folder, 2 MB cap.
+     * Path shape: users/{userId}/avatar_<ts>.jpg|png|webp
+     ***************************************************/
+    match /users/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && fileName.matches('avatar_[0-9]+\\.(jpg|jpeg|png|webp)$')
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
